@@ -1,0 +1,55 @@
+# sshd 配置（唯一权威来源：模板 /etc/alice/sshd_config.in）
+#
+# entrypoint 每次容器启动替换占位符渲染到 /run/alice/sshd_config，
+# sshd 由 -f 显式指向后者；/etc/ssh/sshd_config（openssh 原版）从不生效。
+# 本注释块会被一并带进渲染产物——看到它就是看到了出处。
+#
+# 要改 sshd 行为：改这份模板并重建镜像。容器内直接改渲染产物只撑到
+# 下次重启（每次启动无条件重渲染）；覆盖 sshd.scm 只能改启动参数。
+#
+# 占位符：
+#   @USER@   容器内用户名
+#   @HOME@   该用户的家目录（绝对路径）
+#
+# 认证：密码 + TOTP，经 keyboard-interactive 一步走完（PAM 验两步）。
+# host key 放在家目录内（唯一持久卷），重建容器后客户端 known_hosts 仍有效。
+
+# 容器内固定监听 22；对外暴露的端口在 compose.yml 的 ports 里映射（宿主侧可配）
+Port 22
+ListenAddress 0.0.0.0
+
+HostKey @HOME@/.local/share/alice/ssh/ssh_host_ed25519_key
+HostKey @HOME@/.local/share/alice/ssh/ssh_host_rsa_key
+
+# ── 认证（密码 + TOTP）────────────────────────────────────────
+# keyboard-interactive 全权交给 PAM：
+#   pam_unix                 → 验密码（用户默认 locked，passwd 后启用）
+#   pam_google_authenticator → 验 TOTP
+AuthenticationMethods keyboard-interactive
+KbdInteractiveAuthentication yes
+
+# 公钥与密码两个 sshd 原生方法都关（密码只经 PAM 通道，TOTP 无法绕过）
+PubkeyAuthentication no
+PasswordAuthentication no
+PermitEmptyPasswords no
+
+UsePAM yes
+PermitRootLogin no
+AllowUsers @USER@
+
+# ── 其他 ─────────────────────────────────────────────────────
+# 长连接保活：60s 一个心跳，连续 3 次无响应才断开（防 NAT/反代超时掉线）
+ClientAliveInterval 60
+ClientAliveCountMax 3
+
+X11Forwarding no
+AllowAgentForwarding yes
+AllowTcpForwarding yes
+PermitTunnel no
+MaxAuthTries 3
+LoginGraceTime 30
+
+UseDNS no
+PrintMotd no
+
+Subsystem sftp internal-sftp

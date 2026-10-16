@@ -1,0 +1,74 @@
+# ═══════════════════════════════════════════════════════════════
+# alice —— 远程开发容器
+#
+# 这个文件是【模板】，不要直接用它跑。用法：
+#
+#   mkdir -p <实例目录> && cd <实例目录>
+#   cp <项目>/compose.yml.example compose.yml
+#   cp <项目>/.env.example        .env
+#   vim .env                     # 必填项见 .env.example
+#   docker compose up -d         # 首次会自动构建镜像
+#
+# 所有变量都必须由 .env 提供；缺任何一个会立即报错，
+# 且不会创建任何目录（爆炸半径为零）。
+# ═══════════════════════════════════════════════════════════════
+
+name: ${CONTAINER_NAME:?错误：CONTAINER_NAME 未设置。请先创建 .env（参考 .env.example）}
+
+services:
+  alice:
+    image: ${IMAGE_NAME:?错误：IMAGE_NAME 未设置}
+
+    # 本地构建。首次 `docker compose up` 时镜像不存在会自动构建；
+    # 之后改了 image/（Dockerfile / 服务定义 / 配置模板）用 `docker compose up -d --build`
+    # 重建（镜像或配置变了时 compose 会自动重建容器）。
+    build:
+      context: ${PROJECT_DIR:?错误：PROJECT_DIR 未设置}/image
+
+    container_name: ${CONTAINER_NAME:?}
+    hostname: ${CONTAINER_NAME:?}
+    restart: unless-stopped
+
+    # 改了 .env / 本文件的任何值（用户名、uid、端口、家目录…）后：
+    #   docker compose up -d      ← 正确：自动重建容器，重新读取 .env
+    #   docker compose restart    ← 错误：不重读 .env，仍是旧值
+    # 反过来，只改了卷内的服务定义（~/.config/alice/service/*.scm）时：
+    #   docker compose restart    ← 正确：重跑 entrypoint，重扫服务目录
+    #   docker compose up -d      ← 无效：配置哈希没变，compose 判定
+    #                               「up-to-date」后什么都不做（实测）
+
+    # 宿主 127.0.0.1:${SSH_PORT} → 容器内 22（sshd）
+    # 需要映射更多端口就自己往这里加，例如：
+    #   - "127.0.0.1:30001-30100:30001-30100"
+    ports:
+      - "127.0.0.1:${SSH_PORT:?错误：SSH_PORT 未设置}:22"
+
+    # 容器即边界：容器内不设防，只要不溢出到容器外。
+    # seccomp=unconfined 是 bubblewrap 等用户态沙箱的刚需。
+    # 不加 no-new-privileges（与免密 sudo 互斥）。
+    security_opt:
+      - seccomp=unconfined
+    privileged: false
+
+    # fd 上限：docker 默认 soft 只有 1024，对开发容器太紧——
+    # 前端 file watcher、AI agent 的进程/socket、nix 并发构建都会撞到。
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+
+    # /dev/shm 大小：docker 默认 64MB，Chromium/Playwright 会直接崩。
+    # tmpfs 惰性分配，不用不占内存。
+    shm_size: 1gb
+
+    volumes:
+      # 唯一的持久卷：宿主侧家目录 → 容器内家目录（宿主路径任意）
+      # ⚠️ 宿主侧该目录的属主应与 USER_UID:USER_GID 一致（见 .env.example）
+      - ${HOME_DIR:?错误：HOME_DIR 未设置}:/home/${USER_NAME:?错误：USER_NAME 未设置}
+
+    environment:
+      TZ: Asia/Shanghai
+      # 传给 entrypoint，用于在容器内创建用户
+      ALICE_USER: ${USER_NAME:?}
+      ALICE_UID: ${USER_UID:?}
+      ALICE_GID: ${USER_GID:?}

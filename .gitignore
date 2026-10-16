@@ -1,0 +1,10 @@
+# ── 白名单模式：默认忽略根目录下的一切，只放行下面列出的 ──
+/*
+!/.gitignore
+!/README.md
+!/.env.example
+!/compose.yml.example
+!/AGENTS.container.md
+!/image/
+!/LICENSE
+!/.gitattributes
