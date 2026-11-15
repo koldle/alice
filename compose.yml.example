@@ -67,7 +67,8 @@ services:
       - ${HOME_DIR:?错误：HOME_DIR 未设置}:/home/${USER_NAME:?错误：USER_NAME 未设置}
 
     environment:
-      TZ: Asia/Shanghai
+      # 时区：缺省 Asia/Shanghai（UTC+8）；实例 .env 的 TZ 可覆盖（如 UTC）
+      TZ: ${TZ:-Asia/Shanghai}
       # 传给 entrypoint，用于在容器内创建用户
       ALICE_USER: ${USER_NAME:?}
       ALICE_UID: ${USER_UID:?}

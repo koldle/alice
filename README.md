@@ -10,7 +10,8 @@ GNU Shepherd 管服务。可以在里面跑常驻的 AI agent 服务。
 - 认证：**密码 + TOTP 双因素**，只绑 `127.0.0.1`
 
 > **海外用户**：构建默认走中国大陆镜像源（`image/Dockerfile` 里的 TUNA / 南大 / USTC），
-> 时区默认 `Asia/Shanghai`（compose.yml）——都可按需自行替换。
+> 时区默认 `Asia/Shanghai`（UTC+8）。换国际源：`cp image/Dockerfile.intl image/Dockerfile`；
+> 时区在实例 `.env` 里设 `TZ=UTC`（`TZ` 可省略，缺省即 `Asia/Shanghai`）。
 
 ---
 
@@ -49,8 +50,9 @@ vim .env
 | `HOME_DIR` | 宿主侧家目录（挂载为容器内 /home/<用户名>，名字、位置任意） |
 | `PROJECT_DIR` | 本项目所在路径（用于构建镜像） |
 | `IMAGE_NAME` | 镜像名 |
+| `TZ`（可选） | 容器时区，缺省 `Asia/Shanghai`（UTC+8）；国际用户常改 `UTC` |
 
-> **所有变量都是必填**。任何一个缺失或留空，`docker compose` 会立即报错，且不会创建任何目录。
+> **除 `TZ` 外所有变量都是必填**。任何一个缺失或留空，`docker compose` 会立即报错，且不会创建任何目录。
 > `HOME_DIR` 和 `PROJECT_DIR` 在示例里**故意留空**——留空即报错，避免忘改时
 > 静默创建 `/home/you/...` 或从错误的路径构建镜像。
 
@@ -253,6 +255,7 @@ docker compose restart          # 完事（约 11 秒，见下）
 
 ```nix
 {
+  # 海外：tarball+https://channels.nixos.org/nixos-26.05/nixexprs.tar.xz
   inputs.nixpkgs.url = "tarball+https://mirror.nju.edu.cn/nix-channels/nixos-26.05/nixexprs.tar.xz";
   outputs = { self, nixpkgs }:
     let system = "x86_64-linux"; pkgs = nixpkgs.legacyPackages.${system};
@@ -271,7 +274,7 @@ nix develop                    # 进环境
 nix develop --command <cmd>    # 直接跑命令
 ```
 
-nixpkgs 已全局指向南大 tarball，`nixpkgs#xxx` 简写可用。
+nixpkgs 已全局指向南大 tarball（用了 `Dockerfile.intl` 则指向 channels.nixos.org），`nixpkgs#xxx` 简写可用。
 想要 `cd` 进目录自动激活，自己装 direnv 并在 shell rc 里配 hook。
 
 ---
@@ -324,7 +327,8 @@ docker exec -it alice passwd <USER_NAME>
 ├── .gitignore
 ├── LICENSE                MIT
 └── image/
-    ├── Dockerfile         Arch + paru + AUR + nix
+    ├── Dockerfile         Arch + paru + AUR + nix（默认中国大陆镜像源）
+    ├── Dockerfile.intl    国际源变体：cp 覆盖 Dockerfile 即用（见「海外用户」）
     ├── entrypoint.sh      运行期准备（建用户 / host key / 渲染配置）→ exec shepherd
     ├── init.scm           服务加载器（builtin + 用户服务）
     ├── sshd_config.in     sshd 配置模板（占位符由 entrypoint 替换）

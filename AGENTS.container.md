@@ -109,7 +109,7 @@ directory`）。服务日志（`/var/log/<name>/service.log`）同样 root 私�
 
 容器即边界：容器内 sudo 免密随便用；但容器里没有 docker，
 改镜像、改端口映射、重启容器等宿主侧操作一律请用户执行。
-时区 Asia/Shanghai；locale：login shell 兑底 C.UTF-8
+时区默认 Asia/Shanghai（实例 .env 的 TZ 可改，如 UTC）；locale：login shell 兑底 C.UTF-8
 （`docker exec` / 服务继承镜像的 ENV LANG=C.UTF-8）。
 
 ### 5. 认证已配好，别动
